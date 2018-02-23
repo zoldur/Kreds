@@ -2,11 +2,11 @@
 
 TMP_FOLDER=$(mktemp -d)
 CONFIG_FILE="kreds.conf"
-CONFIG_FOLDER="/root/.kreds"
-COIN_DAEMON="/usr/local/bin/kredsd"
-COIN_CLI="/usr/local/bin/kreds-cli"
-COIN_REPO="https://github.com/KredsBlockchain/kreds-core.git"
-COIN_TGZ="https://github.com/zoldur/Kreds/raw/master/releases/kreds.tgz"
+CONFIGFOLDER='/root/.kreds'
+COIN_DAEMON='/usr/local/bin/kredsd'
+COIN_CLI='/usr/local/bin/kreds-cli'
+COIN_REPO='https://github.com/KredsBlockchain/kreds-core.git'
+COIN_TGZ='https://github.com/zoldur/Kreds/raw/master/releases/kreds.tgz'
 COIN_NAME="kreds"
 COIN_PORT=3950
 RPCPORT=3850
@@ -41,10 +41,10 @@ User=root
 Group=root
 
 Type=forking
-#PIDFile=$CONFIG_FOLDER/$COIN_NAME.pid
+#PIDFile=$CONFIGFOLDER/$COIN_NAME.pid
 
-ExecStart=$COIN_DAEMON -daemon -conf=$CONFIG_FOLDER/$CONFIG_FILE -datadir=$CONFIG_FOLDER
-ExecStop=-$COIN_CLI -conf=$CONFIG_FOLDER/$CONFIG_FILE -datadir=$CONFIG_FOLDER stop
+ExecStart=$COIN_DAEMON -daemon -conf=$CONFIGFOLDER/$CONFIG_FILE -datadir=$CONFIGFOLDER
+ExecStop=-$COIN_CLI -conf=$CONFIGFOLDER/$CONFIG_FILE -datadir=$CONFIGFOLDER stop
 
 Restart=always
 PrivateTmp=true
@@ -72,10 +72,10 @@ EOF
 }
 
 function create_config() {
-  mkdir $CONFIG_FOLDER >/dev/null 2>&1
+  mkdir $CONFIGFOLDER >/dev/null 2>&1
   RPCUSER=$(pwgen -s 8 1)
   RPCPASSWORD=$(pwgen -s 15 1)
-  cat << EOF > $CONFIG_FOLDER/$CONFIG_FILE
+  cat << EOF > $CONFIGFOLDER/$CONFIG_FILE
 rpcuser=$RPCUSER
 rpcpassword=$RPCPASSWORD
 rpcallowip=127.0.0.1
@@ -102,8 +102,9 @@ fi
 }
 
 function update_config() {
-  sed -i 's/daemon=1/daemon=0/' $CONFIG_FOLDER/$CONFIG_FILE
-  cat << EOF >> $CONFIG_FOLDER/$CONFIG_FILE
+  sed -i 's/daemon=1/daemon=0/' $CONFIGFOLDER/$CONFIG_FILE
+  cat << EOF >> $CONFIGFOLDER/$CONFIG_FILE
+promode=1
 maxconnections=256
 masternode=1
 masternodeaddr=$NODEIP:$COIN_PORT
@@ -228,7 +229,7 @@ function important_information() {
  echo
  echo -e "================================================================================================================================"
  echo -e "$COIN_NAME Masternode is up and running as user listening on port ${GREEN}$COIN_PORT${NC}."
- echo -e "Configuration file is: ${RED}$CONFIG_FOLDER/$CONFIG_FILE${NC}"
+ echo -e "Configuration file is: ${RED}$CONFIGFOLDER/$CONFIG_FILE${NC}"
  echo -e "Start: ${RED}systemctl start $COIN_NAME.service${NC}"
  echo -e "Stop: ${RED}systemctl stop $COIN_NAME.service${NC}"
  echo -e "VPS_IP:PORT ${RED}$NODEIP:$COIN_PORT${NC}"

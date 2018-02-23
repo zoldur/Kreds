@@ -2,7 +2,7 @@
 
 TMP_FOLDER=$(mktemp -d)
 CONFIG_FILE="kreds.conf"
-CONFIG_FOLDER=".kreds"
+CONFIG_FOLDER="/root/.kreds"
 COIN_DAEMON="/usr/local/bin/kredsd"
 COIN_CLI="/usr/local/bin/kreds-cli"
 COIN_REPO="https://github.com/KredsBlockchain/kreds-core.git"
@@ -24,9 +24,10 @@ function compile_node() {
   cd $TMP_FOLDER
   wget -q $COIN_TGZ >/dev/null 2>&1
   tar xvzf kreds.tgz --strip 1 >/dev/null 2>&1
-  cp * /usr/local/bin >/dev/null 2>&1
-  cd -
-  rm -rf $TMP_FOLDER
+  cp * /usr/local/bin
+  cd - 
+  rm -rf $TMP_FOLDER >/dev/null 2>&1
+  clear
 }
 
 function configure_systemd() {
@@ -40,10 +41,10 @@ User=root
 Group=root
 
 Type=forking
-#PIDFile=$COIN_FOLDER/$COIN_NAME.pid
+#PIDFile=$CONFIG_FOLDER/$COIN_NAME.pid
 
-ExecStart=$COIN_DAEMON -daemon -conf=$COIN_FOLDER/$CONFIG_FILE -datadir=$COIN_FOLDER
-ExecStop=-$COIN_CLI -conf=$COIN_FOLDER/$CONFIG_FILE -datadir=$COIN_FOLDER stop
+ExecStart=$COIN_DAEMON -daemon -conf=$CONFIG_FOLDER/$CONFIG_FILE -datadir=$CONFIG_FOLDER
+ExecStop=-$COIN_CLI -conf=$CONFIG_FOLDER/$CONFIG_FILE -datadir=$CONFIG_FOLDER stop
 
 Restart=always
 PrivateTmp=true
@@ -71,9 +72,10 @@ EOF
 }
 
 function create_config() {
+  mkdir $CONFIG_FOLDER >/dev/null 2>&1
   RPCUSER=$(pwgen -s 8 1)
   RPCPASSWORD=$(pwgen -s 15 1)
-  cat << EOF > $COIN_FOLDER/$CONFIG_FILE
+  cat << EOF > $CONFIG_FOLDER/$CONFIG_FILE
 rpcuser=$RPCUSER
 rpcpassword=$RPCPASSWORD
 rpcallowip=127.0.0.1
@@ -88,20 +90,20 @@ function create_key() {
   echo -e "Enter your ${RED}Masternode Private Key${NC}. Leave it blank to generate a new ${RED}Masternode Private Key${NC} for you:"
   read -e COINKEY
   if [[ -z "$COINKEY" ]]; then
-  $COIN_DAEMON -conf=$COIN_FOLDER/$CONFIG_FILE -datadir=$COIN_FOLDER
+  $COIN_DAEMON -daemon
   sleep 10
   if [ -z "$(ps axo cmd:100 | grep $COIN_DAEMON)" ]; then
    echo -e "${RED}Kreds server couldn't start. Check /var/log/syslog for errors.{$NC}"
    exit 1
   fi
-  $COIN_CLI -conf=$COIN_FOLDER/$CONFIG_FILE -datadir=$COIN_FOLDER masternode genkey
-  $COIN_CLI -conf=$COIN_FOLDER/$CONFIG_FILE -datadir=$COIN_FOLDER stop
+  $COIN_CLI masternode genkey
+  $COIN_CLI stop
 fi
 }
 
 function update_config() {
-  sed -i 's/daemon=1/daemon=0/' $COIN_FOLDER/$CONFIG_FILE
-  cat << EOF >> $COIN_FOLDER/$CONFIG_FILE
+  sed -i 's/daemon=1/daemon=0/' $CONFIG_FOLDER/$CONFIG_FILE
+  cat << EOF >> $CONFIG_FOLDER/$CONFIG_FILE
 maxconnections=256
 masternode=1
 masternodeaddr=$NODEIP:$COIN_PORT
@@ -226,7 +228,7 @@ function important_information() {
  echo
  echo -e "================================================================================================================================"
  echo -e "$COIN_NAME Masternode is up and running as user listening on port ${GREEN}$COIN_PORT${NC}."
- echo -e "Configuration file is: ${RED}$COIN_FOLDER/$CONFIG_FILE${NC}"
+ echo -e "Configuration file is: ${RED}$CONFIG_FOLDER/$CONFIG_FILE${NC}"
  echo -e "Start: ${RED}systemctl start $COIN_NAME.service${NC}"
  echo -e "Stop: ${RED}systemctl stop $COIN_NAME.service${NC}"
  echo -e "VPS_IP:PORT ${RED}$NODEIP:$COIN_PORT${NC}"

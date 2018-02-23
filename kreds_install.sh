@@ -5,6 +5,7 @@ CONFIG_FILE="kreds.conf"
 COIN_DAEMON="/usr/local/bin/kredsd"
 COIN_CLI="/usr/local/bin/kreds-cli"
 COIN_REPO="https://github.com/KredsBlockchain/kreds-core.git"
+COIN_TGZ="https://github.com/zoldur/Kreds/blob/master/releases/kreds.tgz"
 DEFAULTCOINPORT=3950
 RPCPORT=3850
 DEFAULTCOINUSER="kreds"
@@ -118,18 +119,11 @@ clear
 }
 
 function compile_node() {
-  echo -e "Download binaries. This may take some time. Press a key to continue."
-  git clone $COIN_REPO $TMP_FOLDER >/dev/null 2>&1
+  echo -e "Download binaries. This may take some time."
+  wget -q $COIN_TGZ $TMP_FOLDER >/dev/null 2>&1
   cd $TMP_FOLDER
-  ./autogen.sh
-  compile_error Kreds autogen.sh
-  ./configure 
-  compile_error Kreds configure
-  make
-  compile_error Kreds make
-  make install
-  cd -
-  rm -rf $TMP_FOLDER
+  tar xvzf kreds.tgz --strip 1
+  cp * /usr/local/bin
 }
 
 function enable_firewall() {

@@ -2,13 +2,14 @@
 
 TMP_FOLDER=$(mktemp -d)
 CONFIG_FILE="kreds.conf"
+CONFIG_FOLDER=".kreds"
 COIN_DAEMON="/usr/local/bin/kredsd"
 COIN_CLI="/usr/local/bin/kreds-cli"
 COIN_REPO="https://github.com/KredsBlockchain/kreds-core.git"
 COIN_TGZ="https://github.com/zoldur/Kreds/raw/master/releases/kreds.tgz"
-DEFAULTCOINPORT=3950
+COIN_NAME="kreds"
+COIN_PORT=3950
 RPCPORT=3850
-DEFAULTCOINUSER="kreds"
 
 NODEIP=$(curl -s4 icanhazip.com)
 
@@ -16,6 +17,111 @@ NODEIP=$(curl -s4 icanhazip.com)
 RED='\033[0;31m'
 GREEN='\033[0;32m'
 NC='\033[0m'
+
+
+function compile_node() {
+  echo -e "Download binaries. This may take some time."
+  cd $TMP_FOLDER
+  wget -q $COIN_TGZ >/dev/null 2>&1
+  tar xvzf kreds.tgz --strip 1 >/dev/null 2>&1
+  cp * /usr/local/bin >/dev/null 2>&1
+  cd -
+  rm -rf $TMP_FOLDER
+}
+
+function configure_systemd() {
+  cat << EOF > /etc/systemd/system/$COIN_NAME.service
+[Unit]
+Description=$COIN_NAME service
+After=network.target
+
+[Service]
+User=root
+Group=root
+
+Type=forking
+#PIDFile=$COIN_FOLDER/$COIN_NAME.pid
+
+ExecStart=$COIN_DAEMON -daemon -conf=$COIN_FOLDER/$CONFIG_FILE -datadir=$COIN_FOLDER
+ExecStop=-$COIN_CLI -conf=$COIN_FOLDER/$CONFIG_FILE -datadir=$COIN_FOLDER stop
+
+Restart=always
+PrivateTmp=true
+TimeoutStopSec=60s
+TimeoutStartSec=5s
+StartLimitInterval=120s
+StartLimitBurst=5
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+  systemctl daemon-reload
+  sleep 3
+  systemctl start $COIN_NAME.service
+  systemctl enable $COIN_NAME.service
+
+  if [[ -z "$(ps axo cmd:100 | egrep $COIN_DAEMON)" ]]; then
+    echo -e "${RED}COIN is not running${NC}, please investigate. You should start by running the following commands as root:"
+    echo -e "${GREEN}systemctl start $COINUSER.service"
+    echo -e "systemctl status $COINUSER.service"
+    echo -e "less /var/log/syslog${NC}"
+    exit 1
+  fi
+}
+
+function create_config() {
+  RPCUSER=$(pwgen -s 8 1)
+  RPCPASSWORD=$(pwgen -s 15 1)
+  cat << EOF > $COIN_FOLDER/$CONFIG_FILE
+rpcuser=$RPCUSER
+rpcpassword=$RPCPASSWORD
+rpcallowip=127.0.0.1
+listen=1
+server=1
+daemon=1
+port=$COIN_PORT
+EOF
+}
+
+function create_key() {
+  echo -e "Enter your ${RED}Masternode Private Key${NC}. Leave it blank to generate a new ${RED}Masternode Private Key${NC} for you:"
+  read -e COINKEY
+  if [[ -z "$COINKEY" ]]; then
+  $COIN_DAEMON -conf=$COIN_FOLDER/$CONFIG_FILE -datadir=$COIN_FOLDER
+  sleep 10
+  if [ -z "$(ps axo cmd:100 | grep $COIN_DAEMON)" ]; then
+   echo -e "${RED}Kreds server couldn't start. Check /var/log/syslog for errors.{$NC}"
+   exit 1
+  fi
+  $COIN_CLI -conf=$COIN_FOLDER/$CONFIG_FILE -datadir=$COIN_FOLDER masternode genkey
+  $COIN_CLI -conf=$COIN_FOLDER/$CONFIG_FILE -datadir=$COIN_FOLDER stop
+fi
+}
+
+function update_config() {
+  sed -i 's/daemon=1/daemon=0/' $COIN_FOLDER/$CONFIG_FILE
+  cat << EOF >> $COIN_FOLDER/$CONFIG_FILE
+maxconnections=256
+masternode=1
+masternodeaddr=$NODEIP:$COIN_PORT
+masternodeprivkey=$COINKEY
+EOF
+}
+
+
+function enable_firewall() {
+  echo -e "Installing fail2ban and setting up firewall to allow ingress on port ${GREEN}$COIN_PORT${NC}"
+  ufw allow $COIN_PORT/tcp comment "$COIN_NAME MN port" >/dev/null
+  ufw allow $RPCPORT/tcp comment "$COIN_NAME RPC port" >/dev/null
+  ufw allow ssh comment "SSH" >/dev/null 2>&1
+  ufw limit ssh/tcp >/dev/null 2>&1
+  ufw default allow outgoing >/dev/null 2>&1
+  echo "y" | ufw enable >/dev/null 2>&1
+  systemctl enable fail2ban >/dev/null 2>&1
+  systemctl start fail2ban >/dev/null 2>&1
+}
+
 
 
 function get_ip() {
@@ -45,7 +151,7 @@ function get_ip() {
 function compile_error() {
 if [ "$?" -gt "0" ];
  then
-  echo -e "${RED}Failed to compile $@. Please investigate.${NC}"
+  echo -e "${RED}Failed to compile $COIN_NAME. Please investigate.${NC}"
   exit 1
 fi
 }
@@ -63,12 +169,8 @@ if [[ $EUID -ne 0 ]]; then
 fi
 
 if [ -n "$(pidof $COIN_DAEMON)" ] || [ -e "$COIN_DAEMOM" ] ; then
-  echo -e "${GREEN}\c"
-  read -e -p "Kreds is already installed. Do you want to add another MN? [Y/N]" NEW_COIN
-  echo -e "{NC}"
-  clear
-else
-  NEW_COIN="new"
+  echo -e "${RED}$COIN_NAME is already installed.${NC}"
+  exit 1.
 fi
 }
 
@@ -118,156 +220,16 @@ fi
 clear
 }
 
-function compile_node() {
-  echo -e "Download binaries. This may take some time."
-  cd $TMP_FOLDER
-  wget -q $COIN_TGZ >/dev/null 2>&1
-  tar xvzf kreds.tgz --strip 1
-  cp * /usr/local/bin
-}
-
-function enable_firewall() {
-  echo -e "Installing fail2ban and setting up firewall to allow ingress on port ${GREEN}$COINPORT${NC}"
-  ufw allow $COINPORT/tcp comment "Kreds MN port" >/dev/null
-  ufw allow $RPCPORT/tcp comment "Kreds RPC port" >/dev/null
-  ufw allow ssh comment "SSH" >/dev/null 2>&1
-  ufw limit ssh/tcp >/dev/null 2>&1
-  ufw default allow outgoing >/dev/null 2>&1
-  echo "y" | ufw enable >/dev/null 2>&1
-  systemctl enable fail2ban >/dev/null 2>&1
-  systemctl start fail2ban >/dev/null 2>&1
-}
-
-function configure_systemd() {
-  cat << EOF > /etc/systemd/system/$COINUSER.service
-[Unit]
-Description=Kred service
-After=network.target
-
-[Service]
-User=$COINUSER
-Group=$COINUSER
-
-Type=forking
-PIDFile=$COINFOLDER/$COINUSER.pid
-
-ExecStart=$COIN_DAEMON -daemon -pid=$COINFOLDER/$COINUSER.pid -conf=$COINFOLDER/$CONFIG_FILE -datadir=$COINFOLDER
-ExecStop=-$COIN_CLI -conf=$COINFOLDER/$CONFIG_FILE -datadir=$COINFOLDER stop
-
-Restart=always
-PrivateTmp=true
-TimeoutStopSec=60s
-TimeoutStartSec=2s
-StartLimitInterval=120s
-StartLimitBurst=5
-
-[Install]
-WantedBy=multi-user.target
-EOF
-
-  systemctl daemon-reload
-  sleep 3
-  systemctl start $COINUSER.service
-  systemctl enable $COINUSER.service
-
-  if [[ -z "$(ps axo user:15,cmd:100 | egrep ^$COINUSER | grep $COIN_DAEMON)" ]]; then
-    echo -e "${RED}COIN is not running${NC}, please investigate. You should start by running the following commands as root:"
-    echo -e "${GREEN}systemctl start $COINUSER.service"
-    echo -e "systemctl status $COINUSER.service"
-    echo -e "less /var/log/syslog${NC}"
-    exit 1
-  fi
-}
-
-function ask_port() {
-read -p "Kreds Port: " -i $DEFAULTCOINPORT -e COINPORT
-: ${COINPORT:=$DEFAULTCOINPORT}
-}
-
-function ask_user() {
-  read -p "Kreds user: " -i $DEFAULTCOINUSER -e COINUSER
-  : ${COINUSER:=$DEFAULTCOINUSER}
-
-  if [ -z "$(getent passwd $COINUSER)" ]; then
-    USERPASS=$(pwgen -s 12 1)
-    useradd -m $COINUSER
-    echo "$COINUSER:$USERPASS" | chpasswd
-
-    COINHOME=$(sudo -H -u $COINUSER bash -c 'echo $HOME')
-    DEFAULTCOINFOLDER="$COINHOME/.kreds"
-    read -p "Configuration folder: " -i $DEFAULTCOINFOLDER -e COINFOLDER
-    : ${COINFOLDER:=$DEFAULTCOINFOLDER}
-    mkdir -p $COINFOLDER
-    chown -R $COINUSER: $COINFOLDER >/dev/null 2>&1
-  else
-    clear
-    echo -e "${RED}User exits. Please enter another username: ${NC}"
-    ask_user
-  fi
-}
-
-function check_port() {
-  declare -a PORTS
-  PORTS=($(netstat -tnlp | grep $NODEIP | awk '/LISTEN/ {print $4}' | awk -F":" '{print $NF}' | sort | uniq | tr '\r\n'  ' '))
-  ask_port
-
-  while [[ ${PORTS[@]} =~ $COINPORT ]] || [[ ${PORTS[@]} =~ $[RPCPORT] ]]; do
-    clear
-    echo -e "${RED}Port in use, please choose another port:${NF}"
-    ask_port
-  done
-}
-
-function create_config() {
-  RPCUSER=$(pwgen -s 8 1)
-  RPCPASSWORD=$(pwgen -s 15 1)
-  cat << EOF > $COINFOLDER/$CONFIG_FILE
-rpcuser=$RPCUSER
-rpcpassword=$RPCPASSWORD
-rpcallowip=127.0.0.1
-listen=1
-server=1
-daemon=1
-port=$COINPORT
-EOF
-}
-
-function create_key() {
-  echo -e "Enter your ${RED}Masternode Private Key${NC}. Leave it blank to generate a new ${RED}Masternode Private Key${NC} for you:"
-  read -e COINKEY
-  if [[ -z "$COINKEY" ]]; then
-  su $COINUSER -c "$COIN_DAEMON -conf=$COINFOLDER/$CONFIG_FILE -datadir=$COINFOLDER"
-  sleep 10
-  if [ -z "$(ps axo user:15,cmd:100 | egrep ^$COINUSER | grep $COIN_DAEMON)" ]; then
-   echo -e "${RED}Kreds server couldn't start. Check /var/log/syslog for errors.{$NC}"
-   exit 1
-  fi
-  COINKEY=$(su $COINUSER -c "$COIN_CLI -conf=$COINFOLDER/$CONFIG_FILE -datadir=$COINFOLDER masternode genkey")
-  su $COINUSER -c "$COIN_CLI -conf=$COINFOLDER/$CONFIG_FILE -datadir=$COINFOLDER stop"
-fi
-}
-
-function update_config() {
-  sed -i 's/daemon=1/daemon=0/' $COINFOLDER/$CONFIG_FILE
-  cat << EOF >> $COINFOLDER/$CONFIG_FILE
-maxconnections=256
-masternode=1
-externalip=$NODEIP
-masternodeprivkey=$COINKEY
-EOF
-  chown -R $COINUSER: $COINFOLDER >/dev/null
-}
 
 
 function important_information() {
  echo
  echo -e "================================================================================================================================"
- echo -e "Kreds Masternode is up and running as user ${GREEN}$COINUSER${NC} and it is listening on port ${GREEN}$COINPORT${NC}."
- echo -e "${GREEN}$COINUSER${NC} password is ${RED}$USERPASS${NC}"
- echo -e "Configuration file is: ${RED}$COINFOLDER/$CONFIG_FILE${NC}"
+ echo -e "$COIN_NAME Masternode is up and running as user listening on port ${GREEN}$COIN_PORT${NC}."
+ echo -e "Configuration file is: ${RED}$COIN_FOLDER/$CONFIG_FILE${NC}"
  echo -e "Start: ${RED}systemctl start $COINUSER.service${NC}"
  echo -e "Stop: ${RED}systemctl stop $COINUSER.service${NC}"
- echo -e "VPS_IP:PORT ${RED}$NODEIP:$COINPORT${NC}"
+ echo -e "VPS_IP:PORT ${RED}$NODEIP:$COIN_PORT${NC}"
  echo -e "MASTERNODE PRIVATEKEY is: ${RED}$COINKEY${NC}"
  echo -e "Please check Kreds is running with the following command: ${GREEN}systemctl status $COINUSER.service${NC}"
  echo -e "================================================================================================================================"
@@ -275,8 +237,6 @@ function important_information() {
 
 function setup_node() {
   get_ip
-  ask_user
-  check_port
   create_config
   create_key
   update_config
@@ -290,15 +250,7 @@ function setup_node() {
 clear
 
 checks
-if [[ ("$NEW_COIN" == "y" || "$NEW_COIN" == "Y") ]]; then
-  setup_node
-  exit 0
-elif [[ "$NEW_COIN" == "new" ]]; then
-  prepare_system
-  compile_node
-  setup_node
-else
-  echo -e "${GREEN}Kreds already running.${NC}"
-  exit 0
-fi
+prepare_system
+compile_node
+setup_node
 

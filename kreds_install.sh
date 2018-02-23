@@ -5,7 +5,7 @@ CONFIG_FILE="kreds.conf"
 COIN_DAEMON="/usr/local/bin/kredsd"
 COIN_CLI="/usr/local/bin/kreds-cli"
 COIN_REPO="https://github.com/KredsBlockchain/kreds-core.git"
-COIN_TGZ="https://github.com/zoldur/Kreds/blob/master/releases/kreds.tgz"
+COIN_TGZ="https://github.com/zoldur/Kreds/raw/master/releases/kreds.tgz"
 DEFAULTCOINPORT=3950
 RPCPORT=3850
 DEFAULTCOINUSER="kreds"
@@ -120,8 +120,8 @@ clear
 
 function compile_node() {
   echo -e "Download binaries. This may take some time."
-  wget -q $COIN_TGZ $TMP_FOLDER >/dev/null 2>&1
   cd $TMP_FOLDER
+  wget -q $COIN_TGZ >/dev/null 2>&1
   tar xvzf kreds.tgz --strip 1
   cp * /usr/local/bin
 }
@@ -225,10 +225,8 @@ function create_config() {
 rpcuser=$RPCUSER
 rpcpassword=$RPCPASSWORD
 rpcallowip=127.0.0.1
-rpcport=$[COINPORT-1]
 listen=1
 server=1
-bind=$NODEIP
 daemon=1
 port=$COINPORT
 EOF

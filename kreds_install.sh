@@ -96,7 +96,7 @@ function create_key() {
    echo -e "${RED}Kreds server couldn't start. Check /var/log/syslog for errors.{$NC}"
    exit 1
   fi
-  $COIN_CLI masternode genkey
+  COINKEY=$($COIN_CLI masternode genkey)
   $COIN_CLI stop
 fi
 }
@@ -173,7 +173,7 @@ fi
 
 if [ -n "$(pidof $COIN_DAEMON)" ] || [ -e "$COIN_DAEMOM" ] ; then
   echo -e "${RED}$COIN_NAME is already installed.${NC}"
-  exit 1.
+  exit 1
 fi
 }
 

@@ -227,11 +227,11 @@ function important_information() {
  echo -e "================================================================================================================================"
  echo -e "$COIN_NAME Masternode is up and running as user listening on port ${GREEN}$COIN_PORT${NC}."
  echo -e "Configuration file is: ${RED}$COIN_FOLDER/$CONFIG_FILE${NC}"
- echo -e "Start: ${RED}systemctl start $COINUSER.service${NC}"
- echo -e "Stop: ${RED}systemctl stop $COINUSER.service${NC}"
+ echo -e "Start: ${RED}systemctl start $COIN_NAME.service${NC}"
+ echo -e "Stop: ${RED}systemctl stop $COIN_NAME.service${NC}"
  echo -e "VPS_IP:PORT ${RED}$NODEIP:$COIN_PORT${NC}"
  echo -e "MASTERNODE PRIVATEKEY is: ${RED}$COINKEY${NC}"
- echo -e "Please check Kreds is running with the following command: ${GREEN}systemctl status $COINUSER.service${NC}"
+ echo -e "Please check Kreds is running with the following command: ${GREEN}systemctl status $COIN_NAME.service${NC}"
  echo -e "================================================================================================================================"
 }
 

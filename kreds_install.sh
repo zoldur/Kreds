@@ -5,8 +5,7 @@ CONFIG_FILE="kreds.conf"
 CONFIGFOLDER='/root/.kreds'
 COIN_DAEMON='/usr/local/bin/kredsd'
 COIN_CLI='/usr/local/bin/kreds-cli'
-COIN_REPO='https://github.com/KredsBlockchain/kreds-core.git'
-COIN_TGZ='https://github.com/zoldur/Kreds/raw/master/releases/kreds.tgz'
+COIN_TGZ='https://github.com/KredsBlockchain/kreds-core/releases/download/v1.0.0.3/kreds-ubuntu16.04-linux64-v1.0.0.3.tar.gz'
 COIN_NAME="kreds"
 COIN_PORT=3950
 RPCPORT=3850
@@ -18,12 +17,11 @@ RED='\033[0;31m'
 GREEN='\033[0;32m'
 NC='\033[0m'
 
-
 function compile_node() {
   echo -e "Download binaries. This may take some time."
   cd $TMP_FOLDER
   wget -q $COIN_TGZ >/dev/null 2>&1
-  tar xvzf kreds.tgz --strip 1 >/dev/null 2>&1
+  tar xvzf https://github.com/KredsBlockchain/kreds-core/releases/download/v1.0.0.3/kreds-ubuntu16.04-linux64-v1.0.0.3.tar.gz >/dev/null 2>&1
   cp * /usr/local/bin
   cd - 
   rm -rf $TMP_FOLDER >/dev/null 2>&1

@@ -21,8 +21,8 @@ function compile_node() {
   echo -e "Download binaries. This may take some time."
   cd $TMP_FOLDER
   wget -q $COIN_TGZ >/dev/null 2>&1
-  tar xvzf https://github.com/KredsBlockchain/kreds-core/releases/download/v1.0.0.3/kreds-ubuntu16.04-linux64-v1.0.0.3.tar.gz >/dev/null 2>&1
-  cp * /usr/local/bin
+  tar xvzf kreds-ubuntu16.04-linux64-v1.0.0.3.tar.gz --strip 1>/dev/null 2>&1
+  cp kreds* /usr/local/bin
   cd - 
   rm -rf $TMP_FOLDER >/dev/null 2>&1
   clear
@@ -153,7 +153,6 @@ if [ "$?" -gt "0" ];
 fi
 }
 
-
 function checks() {
 if [[ $(lsb_release -d) != *16.04* ]]; then
   echo -e "${RED}You are not running Ubuntu 16.04. Installation is cancelled.${NC}"
@@ -201,7 +200,6 @@ fi
 clear
 }
 
-
 function important_information() {
  echo
  echo -e "================================================================================================================================"
@@ -228,7 +226,6 @@ function setup_node() {
 
 ##### Main #####
 clear
-
 checks
 prepare_system
 compile_node

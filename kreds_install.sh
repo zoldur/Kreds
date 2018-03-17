@@ -21,7 +21,7 @@ function compile_node() {
   echo -e "Download binaries. This may take some time."
   cd $TMP_FOLDER
   wget -q $COIN_TGZ
-  tar xvzf kreds-ubuntu16.04-linux64-v1.0.0.3.tar.gz --strip 1>/dev/null 2>&1
+  tar xvzf kreds-ubuntu16.04-linux64-v1.0.0.3.tar.gz --strip 1 >/dev/null 2>&1
   cp kreds* /usr/local/bin
   cd - 
   rm -rf $TMP_FOLDER >/dev/null 2>&1
